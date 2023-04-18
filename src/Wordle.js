@@ -1,15 +1,19 @@
 import React from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import "./styles/Wordle.css";
 import dictionary from "./data/dictionary.json";
 import targetWords from "./data/targetWords.json";
 
 export default function Wordle() {
+  const WORD_LENGTH = 5;
+  const guessGrid = useRef();
+
+  //subscribe to keydown event on document level
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
@@ -31,7 +35,6 @@ export default function Wordle() {
   }
 
   function handleKeyDown(e) {
-    console.log(e.key);
     if (e.key === "Enter") {
       submitGuess();
       return;
@@ -46,15 +49,40 @@ export default function Wordle() {
     }
   }
 
-  function pressKey() {}
+  function pressKey(key) {
+    const activeTiles = getActiveTiles();
+    if (activeTiles.length >= WORD_LENGTH) return;
+    const nextTile = guessGrid.current.querySelector(":not([data-letter])");
+    nextTile.dataset.letter = key.toLowerCase();
+    nextTile.textContent = key;
+    nextTile.dataset.state = "active";
+  }
 
-  function submitGuess() {}
+  function deleteLastCharacter() {
+    const activeTiles = getActiveTiles();
+    const lastTile = activeTiles[activeTiles.length - 1];
+    if (lastTile == null) return;
+    lastTile.textContent = "";
+    delete lastTile.dataset.state;
+    delete lastTile.dataset.letter;
+  }
 
-  function deleteLastCharacter() {}
+  function submitGuess() {
+    const activeTiles = [...getActiveTiles()];
+    if (activeTiles.length !== WORD_LENGTH) {
+      console.log("not long enough");
+      return;
+    }
+    console.log(activeTiles);
+  }
+
+  function getActiveTiles() {
+    return guessGrid.current.querySelectorAll('[data-state="active"]');
+  }
 
   return (
     <>
-      <div className="guess-grid">
+      <div ref={guessGrid} data-guess-grid className="guess-grid">
         <div className="tile"></div>
         <div className="tile"></div>
         <div className="tile"></div>
@@ -146,11 +174,7 @@ export default function Wordle() {
           L
         </button>
         <div className="space"></div>
-        <button
-          className="key large"
-          data-enter
-          onClick={(e) => handleClick(e)}
-        >
+        <button className="key large" data-enter onClick={() => submitGuess()}>
           ENTER
         </button>
         <button className="key" data-key="Z" onClick={(e) => handleClick(e)}>
@@ -177,19 +201,16 @@ export default function Wordle() {
         <button
           className="key large"
           data-backspace
-          onClick={(e) => handleClick(e)}
-        >
+          onClick={() => deleteLastCharacter()}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             height="24"
             viewBox="0 0 24 24"
             width="24"
-            data-testid="icon-backspace"
-          >
+            data-testid="icon-backspace">
             <path
               fill="var(--color-tone-1)"
-              d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z"
-            ></path>
+              d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z"></path>
           </svg>
         </button>
       </div>
