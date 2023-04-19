@@ -6,7 +6,14 @@ import targetWords from "./data/targetWords.json";
 
 export default function Wordle() {
   const WORD_LENGTH = 5;
+  const startingDate = new Date(2023, 0, 1);
+  const msOffset = Date.now() - startingDate;
+  const dayOffset = msOffset / 1000 / 60 / 60 / 24;
+  const targetWord = targetWords[Math.floor(dayOffset)];
+  console.log(targetWord);
+
   const guessGrid = useRef();
+  const alertContainer = useRef();
 
   //subscribe to keydown event on document level
   useEffect(() => {
@@ -67,22 +74,65 @@ export default function Wordle() {
     delete lastTile.dataset.letter;
   }
 
-  function submitGuess() {
+  async function submitGuess() {
     const activeTiles = [...getActiveTiles()];
     if (activeTiles.length !== WORD_LENGTH) {
-      console.log("not long enough");
+      showAlert("Not enough letters");
+      shakeTiles(activeTiles);
       return;
     }
-    console.log(activeTiles);
+
+    const guess = activeTiles.reduce((word, tile) => {
+      return word + tile.dataset.letter;
+    }, "");
+
+    if (!dictionary.includes(guess)) {
+      showAlert("Not in word list");
+      shakeTiles(activeTiles);
+      return;
+    }
+    activeTiles.forEach((...params) => flipTile(...params, guess));
   }
+
+  async function flipTile(tile, index, array, guess) {}
 
   function getActiveTiles() {
     return guessGrid.current.querySelectorAll('[data-state="active"]');
   }
 
+  function showAlert(message, duration = 1000) {
+    const alert = document.createElement("div");
+    alert.textContent = message;
+    alert.classList.add("alert");
+    alertContainer.current.prepend(alert);
+
+    if (duration == null) return;
+
+    setTimeout(() => {
+      alert.classList.add("hidden");
+      alert.addEventListener("transitionend", () => {
+        alert.remove();
+      });
+    }, duration);
+  }
+
+  function shakeTiles(tiles) {
+    tiles.forEach((tile) => {
+      tile.classList.add("shake");
+      tile.addEventListener(
+        "animationend",
+        () => {
+          tile.classList.remove("shake");
+        },
+        { once: true }
+      );
+    });
+  }
+
   return (
     <>
-      <div ref={guessGrid} data-guess-grid className="guess-grid">
+      <div ref={alertContainer} className="alert-container"></div>
+      <div ref={guessGrid} className="guess-grid">
         <div className="tile"></div>
         <div className="tile"></div>
         <div className="tile"></div>
