@@ -1,30 +1,59 @@
 import React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./styles/Wordle.css";
 import dictionary from "./data/dictionary.json";
 import targetWords from "./data/targetWords.json";
 
 export default function Wordle() {
   const WORD_LENGTH = 5;
+  const FLIP_ANIMATION_DURATION = 500;
+  const DANCE_ANIMATION_DURATION = 500;
   const startingDate = new Date(2023, 0, 1);
   const msOffset = Date.now() - startingDate;
   const dayOffset = msOffset / 1000 / 60 / 60 / 24;
   const targetWord = targetWords[Math.floor(dayOffset)];
-  console.log(targetWord);
 
   const guessGrid = useRef();
   const alertContainer = useRef();
+  const keyboard = useRef();
+
+  const [animationsRunning, setAnimationsRunning] = useState(false);
+
+  subscribeToEvents();
+
+  // useEffect(() => {
+  //   //debugger;
+  //   if (animationsRunning) {
+  //     unsubscribeFromEvents();
+  //   } else {
+  //     subscribeToEvents();
+  //   }
+  // }, [animationsRunning]);
 
   //subscribe to keydown event on document level
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
+  // useEffect(() => {
+  //   document.addEventListener("keydown", handleKeyDown);
 
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
+  //   return () => {
+  //     document.removeEventListener("keydown", handleKeyDown);
+  //   };
+  // }, []);
+
+  function subscribeToEvents() {
+    // debugger;
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("click", handleClick);
+    console.log("subscribed");
+  }
+  function unsubscribeFromEvents() {
+    //debugger;
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("click", handleClick);
+    console.log("unsubscribed");
+  }
 
   function handleClick(e) {
+    //debugger;
     if (e.target.matches("[data-key]")) {
       pressKey(e.target.dataset.key);
       return;
@@ -74,7 +103,7 @@ export default function Wordle() {
     delete lastTile.dataset.letter;
   }
 
-  async function submitGuess() {
+  function submitGuess() {
     const activeTiles = [...getActiveTiles()];
     if (activeTiles.length !== WORD_LENGTH) {
       showAlert("Not enough letters");
@@ -91,10 +120,81 @@ export default function Wordle() {
       shakeTiles(activeTiles);
       return;
     }
+
+    unsubscribeFromEvents();
     activeTiles.forEach((...params) => flipTile(...params, guess));
   }
 
-  async function flipTile(tile, index, array, guess) {}
+  function flipTile(tile, index, array, guess) {
+    const letter = tile.dataset.letter;
+    const key = keyboard.current.querySelector(
+      `[data-key="${letter.toUpperCase()}"]`
+    );
+    setTimeout(() => {
+      tile.classList.add("flip");
+    }, (index * FLIP_ANIMATION_DURATION) / 2);
+
+    tile.addEventListener("transitionend", () => {
+      tile.classList.remove("flip");
+      if (targetWord[index] === letter) {
+        tile.dataset.state = "correct";
+        key.classList.add("correct");
+      } else if (targetWord.includes(letter)) {
+        tile.dataset.state = "wrong-location";
+        key.classList.add("wrong-location");
+      } else {
+        tile.dataset.state = "wrong";
+        key.classList.add("wrong");
+      }
+    });
+
+    tile.addEventListener(
+      "transitionend",
+      () => {
+        tile.classList.remove("flip");
+        if (targetWord[index] === letter) {
+          tile.dataset.state = "correct";
+          key.classList.add("correct");
+        } else if (targetWord.includes(letter)) {
+          tile.dataset.state = "wrong-location";
+          key.classList.add("wrong-location");
+        } else {
+          tile.dataset.state = "wrong";
+          key.classList.add("wrong");
+        }
+
+        if (index === array.length - 1) {
+          tile.addEventListener(
+            "transitionend",
+            () => {
+              subscribeToEvents();
+              checkWinLose(guess, array);
+            },
+            { once: true }
+          );
+        }
+      },
+      { once: true }
+    );
+  }
+
+  function checkWinLose(guess, tiles) {
+    if (guess === targetWord) {
+      showAlert("You Win", 5000);
+      danceTiles(tiles);
+      unsubscribeFromEvents();
+      return;
+    }
+
+    const remainingTiles = guessGrid.current.querySelectorAll(
+      ":not([data-letter])"
+    );
+
+    if (remainingTiles.length === 0) {
+      showAlert(targetWord.toUpperCase(), null);
+      unsubscribeFromEvents();
+    }
+  }
 
   function getActiveTiles() {
     return guessGrid.current.querySelectorAll('[data-state="active"]');
@@ -126,6 +226,21 @@ export default function Wordle() {
         },
         { once: true }
       );
+    });
+  }
+
+  function danceTiles(tiles) {
+    tiles.forEach((tile, index) => {
+      setTimeout(() => {
+        tile.classList.add("dance");
+        tile.addEventListener(
+          "animationend",
+          () => {
+            tile.classList.remove("dance");
+          },
+          { once: true }
+        );
+      }, (index * DANCE_ANIMATION_DURATION) / 5);
     });
   }
 
@@ -164,94 +279,91 @@ export default function Wordle() {
         <div className="tile"></div>
         <div className="tile"></div>
       </div>
-      <div className="keyboard">
-        <button className="key" data-key="Q" onClick={(e) => handleClick(e)}>
+      <div ref={keyboard} className="keyboard">
+        <button className="key" data-key="Q">
           Q
         </button>
-        <button className="key" data-key="W" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="W">
           W
         </button>
-        <button className="key" data-key="E" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="E">
           E
         </button>
-        <button className="key" data-key="R" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="R">
           R
         </button>
-        <button className="key" data-key="T" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="T">
           T
         </button>
-        <button className="key" data-key="Y" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="Y">
           Y
         </button>
-        <button className="key" data-key="U" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="U">
           U
         </button>
-        <button className="key" data-key="I" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="I">
           I
         </button>
-        <button className="key" data-key="O" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="O">
           O
         </button>
-        <button className="key" data-key="P" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="P">
           P
         </button>
         <div className="space"></div>
-        <button className="key" data-key="A" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="A">
           A
         </button>
-        <button className="key" data-key="S" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="S">
           S
         </button>
-        <button className="key" data-key="D" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="D">
           D
         </button>
-        <button className="key" data-key="F" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="F">
           F
         </button>
-        <button className="key" data-key="G" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="G">
           G
         </button>
-        <button className="key" data-key="H" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="H">
           H
         </button>
-        <button className="key" data-key="J" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="J">
           J
         </button>
-        <button className="key" data-key="K" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="K">
           K
         </button>
-        <button className="key" data-key="L" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="L">
           L
         </button>
         <div className="space"></div>
-        <button className="key large" data-enter onClick={() => submitGuess()}>
+        <button className="key large" data-enter>
           ENTER
         </button>
-        <button className="key" data-key="Z" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="Z">
           Z
         </button>
-        <button className="key" data-key="X" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="X">
           X
         </button>
-        <button className="key" data-key="C" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="C">
           C
         </button>
-        <button className="key" data-key="V" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="V">
           V
         </button>
-        <button className="key" data-key="B" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="B">
           B
         </button>
-        <button className="key" data-key="N" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="N">
           N
         </button>
-        <button className="key" data-key="M" onClick={(e) => handleClick(e)}>
+        <button className="key" data-key="M">
           M
         </button>
-        <button
-          className="key large"
-          data-backspace
-          onClick={() => deleteLastCharacter()}>
+        <button className="key large" data-backspace>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             height="24"
